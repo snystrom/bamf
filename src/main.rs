@@ -1,5 +1,6 @@
 use rust_htslib::{bam, bam::Read};
 use structopt::StructOpt;
+use histogram;
 // CLI tutorial book
 // https://rust-cli.github.io/book/tutorial/index.html
 //
@@ -11,6 +12,7 @@ struct Cli {
     #[structopt(subcommand)]
     commands: Option<Bamf>
 }
+
 #[derive(StructOpt, Debug)]
 struct FilterOpts {
     /// a bam file
@@ -35,7 +37,16 @@ struct SummaryOpts {
 }
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "bamf", about = "easier to grok than awk")]
+struct HistogramOpts {
+    /// a bam file
+    #[structopt(parse(from_os_str))]
+    infile: std::path::PathBuf,
+    /// compute distribution up to this size
+    #[structopt(default_value = "1000", short = "b", long = "below")]
+    below: u64
+}
+
+#[derive(StructOpt, Debug)]
 enum Bamf {
     /// Filter bam file to keep only fragments of given size
     #[structopt(name = "filter")]
@@ -44,6 +55,10 @@ enum Bamf {
     /// Print fragment size summary statistics
     #[structopt(name = "summary")]
     Summary (SummaryOpts),
+
+    /// Return counts of each fragment size
+    #[structopt(name = "histogram")]
+    Hist (HistogramOpts),
 
 }
 
@@ -125,6 +140,31 @@ fn summary(bam: &mut bam::Reader) {
     return();
 }
 
+fn hist(bam: &mut bam::Reader, below: u64){
+    let mut h = histogram::Histogram::configure()
+                        .max_value(below)
+                        .build()
+                        .unwrap();
+
+    for r in bam.records() {
+        let insert_size = r.unwrap().insert_size().abs() as u64;
+
+        if insert_size <= below {
+            h.increment(insert_size);
+            //TODO handle Err
+        }
+    }
+
+    // write histogram to stdout
+    // in csv format:
+    // value,count
+    for i in 0..below {
+        println!("{},{}", i, h.get(i).unwrap())
+    }
+
+}
+
+
 fn create_infile_bam_connection(path: &std::path::PathBuf) -> bam::Reader {
     return bam::Reader::from_path(path).unwrap()
 }
@@ -157,6 +197,10 @@ fn main() {
                 //println!("handle Commit: {:?}", args);
                 let mut bam = create_infile_bam_connection(&args.infile);
                 summary(&mut bam)
+            },
+            Bamf::Hist(args) => {
+                let mut bam = create_infile_bam_connection(&args.infile);
+                hist(&mut bam, args.below)
             }
         }
     }
