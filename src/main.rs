@@ -158,8 +158,11 @@ fn hist(bam: &mut bam::Reader, below: u64){
     // write histogram to stdout
     // in csv format:
     // value,count
-    for i in 0..below {
-        println!("{},{}", i, h.get(i).unwrap())
+    println!("size,n")
+    let h_iter = h.into_iter();
+    for i in h_iter {
+        println!("{},{}", i.value(), i.count());
+
     }
 
 }
