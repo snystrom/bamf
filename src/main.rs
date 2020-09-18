@@ -8,8 +8,6 @@ struct Cli {
     infile: std::path::PathBuf,
     #[structopt(default_value = "0", short = "a", long = "above")]
     above: i64,
-    // TODO:
-    // args.below needs a NONE default value, not 1000
     #[structopt(short = "b", long = "below")]
     below: Option<i64>,
     #[structopt(short, long)]
@@ -33,13 +31,18 @@ fn main() {
     let mut out = bam::Writer::from_path(&"examples/out.bam", &header, bam::Format::BAM).unwrap();
 
     if args.summary == true {
-        let mut init = true;
+        let mut init = true; // tracks whether state is first read or not
         let mut min_val: i64 = 0;
         let mut max_val: i64 = 0;
+        let mut mean_val: i64 = 0;
+        let mut n_reads: i64 = 0;
+
         for r in bam.records() {
             let record = r.unwrap();
             let insert_size = record.insert_size().abs();
 
+            // initialize & count min/max
+            // at each iteration
             if init == true {
                 min_val = insert_size;
                 max_val = insert_size;
@@ -54,9 +57,17 @@ fn main() {
                
             }
 
+            // compute rolling mean
+            n_reads += 1;
+            mean_val = mean_val + (insert_size - mean_val) / n_reads;
+
         }
-        println!("min_val: {}", min_val);
-        println!("max_val: {}", max_val);
+
+        println!("min: {}", min_val);
+        println!("max: {}", max_val);
+        println!("mean: {}", mean_val);
+        println!("n: {}", n_reads);
+
         return();
     }
 
