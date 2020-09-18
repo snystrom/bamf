@@ -56,7 +56,7 @@ enum Bamf {
     #[structopt(name = "summary")]
     Summary (SummaryOpts),
 
-    /// Return counts of each fragment size
+    /// Return counts of each fragment size in csv format
     #[structopt(name = "histogram")]
     Hist (HistogramOpts),
 

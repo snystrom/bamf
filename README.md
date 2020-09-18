@@ -35,8 +35,13 @@ Each subcommand takes a bam file as input, streams output to stdout.
 
 ## SubCommands:
 `filter` filter bam file to keep only fragments of given size
- - `-a` return all fragments equal to or above this fragment size
- - `-b` return all fragments equal to or below this fragment size
+ - `-a (--above)` return all fragments equal to or above this fragment size
+ - `-b (--below)` return all fragments equal to or below this fragment size
+
+`summary` print summary statistics min/max/mean fragment size of the bam file
+
+`histogram` prints count of each fragment size in csv format
+ - `-b (--below)` count all fragments equal to or below this size
 
 Examples:
  ```
@@ -48,12 +53,8 @@ Examples:
  
  # return all fragments between 150 and 700 bp
  bamf filter -a 150 -b 700 input.bam > output.bam
- ```
- 
-`summary` print summary statistics min/max/mean fragment size of the bam file
 
-Examples:
-```
-bamf summary input.bam
-```
+# Counts each fragment size in input.bam
+ bamf histogram input.bam > input_histogram.csv
+ ```
 
