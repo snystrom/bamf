@@ -13,16 +13,20 @@ struct Cli {
 }
 #[derive(StructOpt, Debug)]
 struct FilterOpts {
+    /// a bam file
     #[structopt(parse(from_os_str))]
     infile: std::path::PathBuf,
+    /// return all fragments greater than or equal to this fragment size
     #[structopt(default_value = "0", short = "a", long = "above")]
     above: i64,
+    /// return all fragments less than or equal to this fragment size
     #[structopt(short = "b", long = "below")]
     below: Option<i64>,
 }
 
 #[derive(StructOpt, Debug)]
 struct SummaryOpts {
+    /// a bam file
     #[structopt(parse(from_os_str))]
     infile: std::path::PathBuf,
     #[structopt(short, long)]
@@ -33,9 +37,11 @@ struct SummaryOpts {
 #[derive(StructOpt, Debug)]
 #[structopt(name = "bamf", about = "easier to grok than awk")]
 enum Bamf {
+    /// Filter bam file to keep only fragments of given size
     #[structopt(name = "filter")]
     Filter (FilterOpts),
 
+    /// Print fragment size summary statistics
     #[structopt(name = "summary")]
     Summary (SummaryOpts),
 
