@@ -2,23 +2,46 @@ use rust_htslib::{bam, bam::Read};
 use structopt::StructOpt;
 // CLI tutorial book
 // https://rust-cli.github.io/book/tutorial/index.html
-#[derive(StructOpt)]
+//
+// Advice for using enum + struct for building subcommands:
+// https://stackoverflow.com/a/61351721
+
+#[derive(StructOpt, Debug)]
 struct Cli {
+    #[structopt(subcommand)]
+    commands: Option<Bamf>
+}
+#[derive(StructOpt, Debug)]
+struct FilterOpts {
     #[structopt(parse(from_os_str))]
     infile: std::path::PathBuf,
     #[structopt(default_value = "0", short = "a", long = "above")]
     above: i64,
     #[structopt(short = "b", long = "below")]
     below: Option<i64>,
+}
+
+#[derive(StructOpt, Debug)]
+struct SummaryOpts {
+    #[structopt(parse(from_os_str))]
+    infile: std::path::PathBuf,
     #[structopt(short, long)]
     summary: bool
-    //#[structopt(short, long)]
-    //input: bam::Reader::from_path()
-    //path: bam::Reader::from_path()
 
 }
 
-fn filter(args: &Cli, record: &bam::record::Record, out: &mut bam::Writer) {
+#[derive(StructOpt, Debug)]
+#[structopt(name = "bamf", about = "easier to grok than awk")]
+enum Bamf {
+    #[structopt(name = "filter")]
+    Filter (FilterOpts),
+
+    #[structopt(name = "summary")]
+    Summary (SummaryOpts),
+
+}
+
+fn filter(args: &FilterOpts, record: &bam::record::Record, out: &mut bam::Writer) {
     //let record = r.unwrap();
     //
     // negative insert sizes come from reverse-strand alignment
@@ -96,22 +119,37 @@ fn summary(bam: &mut bam::Reader) {
     return();
 }
 
+fn create_infile_bam_connection(path: &std::path::PathBuf) -> bam::Reader {
+    return bam::Reader::from_path(path).unwrap()
+}
+
+fn create_stdout_bam_connection(infile: &bam::Reader) -> bam::Writer {
+    let header = bam::Header::from_template(infile.header());
+    let out = bam::Writer::from_stdout(&header, bam::Format::BAM).unwrap();
+    return out;
+}
+
 fn main() {
 
-    let args = Cli::from_args();
+    let cli = Cli::from_args();
 
-    //let bam_path = &"../../test_data/yw-3LW-aH3K27me3-experiment-20-Wing-30-Std-rep1-Sup_dm6_trim_q5_dupsRemoved.bam";
-    let bam_path = &args.infile;
-    let mut bam = bam::Reader::from_path(bam_path).unwrap();
-    let header = bam::Header::from_template(bam.header());
-    let mut out = bam::Writer::from_path(&"examples/out.bam", &header, bam::Format::BAM).unwrap();
-
-    if args.summary == true {
+    if let Some(subcommand) = cli.commands{
+        match subcommand {
+            Bamf::Filter(args) => {
+                println!("handle Add:  {:?}", args);
+                let mut bam = create_infile_bam_connection(&args.infile);
+                let mut out = create_stdout_bam_connection(&bam);
+                for r in bam.records() {
+                    let record = r.unwrap();
+                    filter(&args, &record, &mut out);
+                }
+            },
+            Bamf::Summary(args) => {
+                println!("handle Commit: {:?}", args);
+            }
+        }
     }
 
-    for r in bam.records() {
-        filter(&args, &r.unwrap(), &mut out);
-
-    }
 
 }
+
