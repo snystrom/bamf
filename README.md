@@ -10,10 +10,10 @@ Each subcommand takes a bam file as input, streams output to stdout.
 
 Examples:
  ```
- # return all fragments greater than 100 bp
+ # return all fragments >= 100 bp
  bamf filter -a 100 input.bam > output.bam
  
- # return all fragments less than 100 bp
+ # return all fragments <= 100 bp
  bamf filter -b 100 input.bam > output.bam
  
  # return all fragments between 150 and 700 bp
