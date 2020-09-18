@@ -1,6 +1,36 @@
 # BAMF 🦀
 ## A mediocre tool for manipulating bam entries by fragment size 
 
+### Install
+
+Install rust if you haven't by visiting: [Install Rust](https://www.rust-lang.org/tools/install). It's super easy!
+
+Clone this repository
+``` sh
+git clone <link>
+```
+
+Build using cargo
+``` sh
+cd bamf/
+cargo build --release
+```
+
+Install the binary
+``` sh
+mv target/release/bamf ~/bin/
+
+# Optional if ~/bin/ is already in your path
+echo "export PATH=\$PATH:~/bin/" >> ~/.bashrc
+```
+
+Test install
+
+``` sh
+bamf --version
+```
+
+## Usage
 Each subcommand takes a bam file as input, streams output to stdout.
 
 ## SubCommands:
