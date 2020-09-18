@@ -136,16 +136,21 @@ fn main() {
     if let Some(subcommand) = cli.commands{
         match subcommand {
             Bamf::Filter(args) => {
-                println!("handle Add:  {:?}", args);
+                //println!("handle Add:  {:?}", args);
+
                 let mut bam = create_infile_bam_connection(&args.infile);
                 let mut out = create_stdout_bam_connection(&bam);
+
                 for r in bam.records() {
                     let record = r.unwrap();
                     filter(&args, &record, &mut out);
                 }
+
             },
             Bamf::Summary(args) => {
-                println!("handle Commit: {:?}", args);
+                //println!("handle Commit: {:?}", args);
+                let mut bam = create_infile_bam_connection(&args.infile);
+                summary(&mut bam)
             }
         }
     }
