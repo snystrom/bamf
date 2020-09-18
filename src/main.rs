@@ -1,5 +1,5 @@
 use rust_htslib::{bam, bam::Read};
-use structopt::StructOpt;
+use structopt::{clap::ArgGroup, StructOpt};
 use histogram;
 // CLI tutorial book
 // https://rust-cli.github.io/book/tutorial/index.html
@@ -27,12 +27,23 @@ struct FilterOpts {
 }
 
 #[derive(StructOpt, Debug)]
+#[structopt(group = ArgGroup::with_name("stat"))]
 struct SummaryOpts {
     /// a bam file
     #[structopt(parse(from_os_str))]
     infile: std::path::PathBuf,
-    #[structopt(short, long)]
-    summary: bool
+    /// Print minimum fragment size
+    #[structopt(short = "n", long, group = "stat", conflicts_with = "summary")]
+    min: bool,
+    /// Print maximum fragment size
+    #[structopt(short = "x", long, group = "stat", conflicts_with = "summary")]
+    max: bool,
+    /// Print mean fragment size
+    #[structopt(short = "d", long, group = "stat", conflicts_with = "summary")]
+    mean: bool,
+    /// Print total read count
+    #[structopt(short = "c", long, group = "stat", conflicts_with = "summary")]
+    reads: bool,
 
 }
 
@@ -60,6 +71,13 @@ enum Bamf {
     #[structopt(name = "histogram")]
     Hist (HistogramOpts),
 
+}
+
+struct BamSummary {
+    min: i64,
+    max: i64,
+    mean: i64,
+    reads: i64
 }
 
 fn filter(args: &FilterOpts, record: &bam::record::Record, out: &mut bam::Writer) {
@@ -99,7 +117,7 @@ fn filter(args: &FilterOpts, record: &bam::record::Record, out: &mut bam::Writer
 
 }
 
-fn summary(bam: &mut bam::Reader) {
+fn summary(bam: &mut bam::Reader) -> BamSummary {
     let mut init = true; // tracks whether state is first read or not
     let mut min_val: i64 = 0;
     let mut max_val: i64 = 0;
@@ -131,13 +149,15 @@ fn summary(bam: &mut bam::Reader) {
         mean_val = mean_val + (insert_size - mean_val) / n_reads;
 
     }
-    
-    println!("min: {}", min_val);
-    println!("max: {}", max_val);
-    println!("mean: {}", mean_val);
-    println!("n: {}", n_reads);
 
-    return();
+     let result = BamSummary {
+        min: min_val,
+        max: max_val,
+        mean: mean_val,
+        reads: n_reads
+     };
+
+    return result;
 }
 
 fn hist(bam: &mut bam::Reader, below: u64){
@@ -158,7 +178,7 @@ fn hist(bam: &mut bam::Reader, below: u64){
     // write histogram to stdout
     // in csv format:
     // value,count
-    println!("size,n")
+    println!("size,n");
     let h_iter = h.into_iter();
     for i in h_iter {
         println!("{},{}", i.value(), i.count());
@@ -199,7 +219,25 @@ fn main() {
             Bamf::Summary(args) => {
                 //println!("handle Commit: {:?}", args);
                 let mut bam = create_infile_bam_connection(&args.infile);
-                summary(&mut bam)
+
+                let bam_summary = summary(&mut bam);
+
+                if !args.min && !args.max && !args.mean && !args.reads {
+                   println!("min: {}", bam_summary.min);
+                   println!("max: {}", bam_summary.max);
+                   println!("mean: {}", bam_summary.mean);
+                   println!("reads: {}", bam_summary.reads);
+                } else if args.min {
+                    println!("{}", bam_summary.min);
+                } else if args.max {
+                    println!("{}", bam_summary.max);
+                } else if args.mean {
+                    println!("{}", bam_summary.mean);
+                } else if args.reads {
+                    println!("{}", bam_summary.reads);
+                }
+
+                return();
             },
             Bamf::Hist(args) => {
                 let mut bam = create_infile_bam_connection(&args.infile);
