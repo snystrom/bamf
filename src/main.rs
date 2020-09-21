@@ -64,7 +64,7 @@ enum Bamf {
     Filter (FilterOpts),
 
     /// Print fragment size summary statistics
-    #[structopt(name = "summary")]
+    #[structopt(name = "stats")]
     Summary (SummaryOpts),
 
     /// Return counts of each fragment size in csv format
