@@ -57,6 +57,26 @@ struct HistogramOpts {
 }
 
 #[derive(StructOpt, Debug)]
+struct SplitOpts {
+    /// a bam file
+    #[structopt(parse(from_os_str))]
+    infile: std::path::PathBuf,
+    /// a series of fragment sizes to split on
+    #[structopt(short = "s", long = "split")]
+    split: Vec<i64>,
+    /// Keep fragments equal to or above this size
+    #[structopt(default_value = "0", short = "a", long = "above")]
+    above: i64,
+    /// Keep fragments equal to or below this size
+    #[structopt(short = "b", long = "below")]
+    below: Option<i64>,
+    /// File prefix
+    #[structopt(short = "p", long = "prefix")]
+    prefix: Option<String>,
+
+}
+
+#[derive(StructOpt, Debug)]
 enum Bamf {
     /// Filter bam file to keep only fragments of given size
     #[structopt(name = "filter")]
@@ -69,6 +89,10 @@ enum Bamf {
     /// Return counts of each fragment size in csv format
     #[structopt(name = "histogram")]
     Hist (HistogramOpts),
+
+    /// Filter bam file into multiple bam files according to fragment size intervals
+    #[structopt(name = "split")]
+    Split (SplitOpts),
 
 }
 
@@ -237,11 +261,15 @@ fn main() {
                     println!("{}", bam_summary.reads);
                 }
 
-                return();
+                return
             },
             Bamf::Hist(args) => {
                 let mut bam = create_infile_bam_connection(&args.infile);
                 hist(&mut bam, args.below)
+            },
+            Bamf::Split(args) => {
+                println!("{:?}", args)
+
             }
         }
     }
