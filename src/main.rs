@@ -1,6 +1,5 @@
 use rust_htslib::{bam, bam::Read};
 use structopt::{clap::ArgGroup, StructOpt};
-use histogram;
 // CLI tutorial book
 // https://rust-cli.github.io/book/tutorial/index.html
 //
@@ -130,7 +129,7 @@ fn summary(bam: &mut bam::Reader) -> BamSummary {
 
         // initialize & count min/max
         // at each iteration
-        if init == true {
+        if init {
             min_val = insert_size;
             max_val = insert_size;
             init = false;
@@ -157,7 +156,7 @@ fn summary(bam: &mut bam::Reader) -> BamSummary {
         reads: n_reads
      };
 
-    return result;
+    result
 }
 
 fn hist(bam: &mut bam::Reader, below: u64){
@@ -170,8 +169,10 @@ fn hist(bam: &mut bam::Reader, below: u64){
         let insert_size = r.unwrap().insert_size().abs() as u64;
 
         if insert_size <= below {
-            h.increment(insert_size);
             //TODO handle Err
+            h.increment(insert_size)
+                .expect("Cannot increment histogram counts");
+            // New implementation:
         }
     }
 
@@ -189,13 +190,12 @@ fn hist(bam: &mut bam::Reader, below: u64){
 
 
 fn create_infile_bam_connection(path: &std::path::PathBuf) -> bam::Reader {
-    return bam::Reader::from_path(path).unwrap()
+    bam::Reader::from_path(path).unwrap()
 }
 
 fn create_stdout_bam_connection(infile: &bam::Reader) -> bam::Writer {
     let header = bam::Header::from_template(infile.header());
-    let out = bam::Writer::from_stdout(&header, bam::Format::BAM).unwrap();
-    return out;
+    bam::Writer::from_stdout(&header, bam::Format::BAM).unwrap()
 }
 
 fn main() {
