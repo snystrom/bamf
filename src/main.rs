@@ -61,18 +61,20 @@ struct SplitOpts {
     /// a bam file
     #[structopt(parse(from_os_str))]
     infile: std::path::PathBuf,
-    /// a series of fragment sizes to split on
-    #[structopt(short = "s", long = "split")]
+    /// a range of fragment sizes to split on: -s <min> <max>
+    /// passing -s multiple times allows splitting into multiple ranges
+    /// order of -s flag determines order of assignment to a range
+    #[structopt(short = "s", long = "split", multiple = true, number_of_values = 2)]
     split: Vec<i64>,
-    /// Keep fragments equal to or above this size
-    #[structopt(default_value = "0", short = "a", long = "above")]
-    above: i64,
-    /// Keep fragments equal to or below this size
-    #[structopt(short = "b", long = "below")]
-    below: Option<i64>,
     /// File prefix
     #[structopt(short = "p", long = "prefix")]
     prefix: Option<String>,
+    /// Allow multimembership
+    /// Whether to allow fragments to be assigned to more than one output file
+    /// otherwise reads will be assigned to the first overlapping range based on
+    /// the order indicated by -s
+    #[structopt(short = "m", long = "multi")]
+    multimembership: bool,
 
 }
 
@@ -268,7 +270,58 @@ fn main() {
                 hist(&mut bam, args.below)
             },
             Bamf::Split(args) => {
-                println!("{:?}", args)
+                println!("{:?}", args);
+
+                // split = [120,150,300]
+                // above = 0
+                // below = Nothing
+                // split_sorted = split.sort()
+                // L = length(split_sorted) + 2
+                // ranges = vector[0; lenght(split_sorted) + 2]
+                // ranges[0] = above
+                // ranges[-1] = below
+                // ranges[1:L-1] = split_sorted
+               
+                let mut v = vec![&args.split];
+                //let mut a = [(0,0); args.split.len() / 2];
+                //let mut a = [(0 as i64,0 as i64); 2];
+                //let a_i = 1;
+                //for i in 0..(args.split.len() / 2) {
+
+                #[derive(Debug)]
+                struct FragmentRange {
+                    min: i64,
+                    max: i64
+                };
+
+                impl Copy for FragmentRange {};
+                impl Clone for FragmentRange {
+                    fn clone(&self) -> FragmentRange {
+                        FragmentRange{min: self.min, max: self.max}
+                    }
+                };
+                impl FragmentRange {
+                    fn new() -> FragmentRange {
+                        FragmentRange{min: 0, max: 1000}
+                    }
+                };
+
+                //let ranges = [std::ops::Range; v.len / 2];
+                //let ranges = vec![std::ops::Range::new(); v.len() / 2];
+                let mut ranges = vec![FragmentRange::new(); (args.split.len() / 2)];
+                let mut split_i = 0;
+                let mut i = 0;
+                //while v.len() >= 2 {
+                while split_i + 1 <= args.split.len() {
+                    //let x = v.split_off(1);
+                    //let r = std::ops::Range{start: x[1], end: x[2]};
+
+                    ranges[i] = FragmentRange{min: args.split[split_i], max: args.split[split_i+1]};
+                    split_i += 2;
+                    i += 1;
+                }
+
+                    println!("{:?}", ranges);
 
             }
         }
