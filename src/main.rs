@@ -105,6 +105,32 @@ struct BamSummary {
     reads: i64
 }
 
+#[derive(Debug)]
+struct FragmentRange {
+    min: i64,
+    max: i64
+}
+
+impl Copy for FragmentRange {}
+
+impl Clone for FragmentRange {
+    fn clone(&self) -> FragmentRange {
+        FragmentRange{min: self.min, max: self.max}
+    }
+}
+
+impl FragmentRange {
+    fn new() -> FragmentRange {
+        FragmentRange{min: 0, max: 1000}
+    }
+}
+
+impl FragmentRange {
+    fn suffix(&self) -> String {
+        format!("{}to{}", self.min, self.max)
+    }
+}
+
 fn filter(args: &FilterOpts, record: &bam::record::Record, out: &mut bam::Writer) {
     //let record = r.unwrap();
     //
@@ -214,13 +240,52 @@ fn hist(bam: &mut bam::Reader, below: u64){
 
 }
 
+fn prepare_split_ranges(split: &Vec<i64>) -> Vec<FragmentRange> {
+    /// Prepare fragment ranges for each split
+    /// (where `split` is an even-numbered vector such that every 2 entries define the beginning and end of a range)
+    /// sorting or any other reorganization operations on `split` are destructive and will produce incorrect behavior
+    /// by unwrapping the split array into min/max pairs
+    /// and packaging into vector of structs
+    /// returns vector of FragmentRanges
+
+    // One range for every pair of entries in `split`
+    let mut ranges = vec![FragmentRange::new(); split.len() / 2];
+
+    // Slide through split by 2's to pack into ranges
+    let mut split_i = 0;
+    let mut range_i = 0;
+    while split_i + 1 <= split.len() {
+
+        // Using min/max ensures split ranges don't need to be sorted correctly
+        // ie `-s 120 20` == `-s 20 120`
+        let (min, max) = {
+            (
+                std::cmp::min(split[split_i], split[split_i+1]),
+                std::cmp::max(split[split_i], split[split_i+1])
+            )
+        };
+
+        ranges[range_i] = FragmentRange{min: min, max: max};
+
+        split_i += 2;
+        range_i += 1;
+    }
+
+    ranges
+}
 
 fn create_infile_bam_connection(path: &std::path::PathBuf) -> bam::Reader {
+    // TODO: I think instead of unwrap() I should use match() to handle err?
+    // maybe .expect()?
+    // maybe `?`
     bam::Reader::from_path(path).unwrap()
 }
 
 fn create_stdout_bam_connection(infile: &bam::Reader) -> bam::Writer {
     let header = bam::Header::from_template(infile.header());
+    // TODO: I think instead of unwrap() I should use match() to handle err?
+    // maybe .expect()?
+    // maybe `?`
     bam::Writer::from_stdout(&header, bam::Format::BAM).unwrap()
 }
 
@@ -231,7 +296,6 @@ fn main() {
     if let Some(subcommand) = cli.commands{
         match subcommand {
             Bamf::Filter(args) => {
-                //println!("handle Add:  {:?}", args);
 
                 let mut bam = create_infile_bam_connection(&args.infile);
                 let mut out = create_stdout_bam_connection(&bam);
@@ -243,7 +307,6 @@ fn main() {
 
             },
             Bamf::Summary(args) => {
-                //println!("handle Commit: {:?}", args);
                 let mut bam = create_infile_bam_connection(&args.infile);
 
                 let bam_summary = summary(&mut bam);
@@ -270,58 +333,40 @@ fn main() {
                 hist(&mut bam, args.below)
             },
             Bamf::Split(args) => {
+                //TODO: remove this
                 println!("{:?}", args);
 
-                // split = [120,150,300]
-                // above = 0
-                // below = Nothing
-                // split_sorted = split.sort()
-                // L = length(split_sorted) + 2
-                // ranges = vector[0; lenght(split_sorted) + 2]
-                // ranges[0] = above
-                // ranges[-1] = below
-                // ranges[1:L-1] = split_sorted
-               
-                let mut v = vec![&args.split];
-                //let mut a = [(0,0); args.split.len() / 2];
-                //let mut a = [(0 as i64,0 as i64); 2];
-                //let a_i = 1;
-                //for i in 0..(args.split.len() / 2) {
+                // Collect vector of ranges
+                let split_ranges = prepare_split_ranges(&args.split);
 
-                #[derive(Debug)]
-                struct FragmentRange {
-                    min: i64,
-                    max: i64
-                };
+                //TODO: remove this
+                println!("{:?}", split_ranges);
+                println!("{:?}", split_ranges[1].suffix());
+           
 
-                impl Copy for FragmentRange {};
-                impl Clone for FragmentRange {
-                    fn clone(&self) -> FragmentRange {
-                        FragmentRange{min: self.min, max: self.max}
-                    }
-                };
-                impl FragmentRange {
-                    fn new() -> FragmentRange {
-                        FragmentRange{min: 0, max: 1000}
-                    }
-                };
+                // TODO: add bam_out entry to FragmentRange?
+                // Maybe add FragmentSplit struct which has FragmentRange and bam_out members
+                // Instantiate output file connections w/ optional prefix + <min>to<max>.bam suffix
+                //
+                // TODO: delete & rewite below since it's broken as hell
+                // and formatting is weird, but this is the idea moving forward
+                //for r in bam.read() {
+                //  insert = r.insert_size().abs();
+                //    for range in ranges {
+                //      if insert >= range.min && insert <= range.max {
+                //          out.write(r)
+                //             if !args.multimembership {
+                //                 // intent is to break out of looping over ranges after finding correct range
+                //                 // unless user wants to sort into multiple files
+                //                 break
+                //             }
+                //    }
 
-                //let ranges = [std::ops::Range; v.len / 2];
-                //let ranges = vec![std::ops::Range::new(); v.len() / 2];
-                let mut ranges = vec![FragmentRange::new(); (args.split.len() / 2)];
-                let mut split_i = 0;
-                let mut i = 0;
-                //while v.len() >= 2 {
-                while split_i + 1 <= args.split.len() {
-                    //let x = v.split_off(1);
-                    //let r = std::ops::Range{start: x[1], end: x[2]};
+                //    }
+                //}
+                //
+                // if multimembership = true don't break
 
-                    ranges[i] = FragmentRange{min: args.split[split_i], max: args.split[split_i+1]};
-                    split_i += 2;
-                    i += 1;
-                }
-
-                    println!("{:?}", ranges);
 
             }
         }
