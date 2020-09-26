@@ -1,7 +1,43 @@
 # BAMF 🦀
 ## A mediocre tool for manipulating bam entries by fragment size 
 
-### Install
+Genomics assays such as ATAC-seq, CUT&RUN, and HiC produce paired-end reads
+whose fragment sizes encode important information related to chromatin
+structure. In these assays, separation of reads by fragment size is a key step
+in examining chromatin structure genome wide. However, few solutions exist to
+simply filter aligned reads by their fragment size. 
+
+A quick [Google search](https://www.google.com/search?client=firefox-b-1-d&q=filter+bam+by+fragment+size)
+demonstrates that the typical way of filtering reads by fragment size is to use
+a variant of an `awk` script which has apparently been floating around the
+internet since the dawn of paired-end sequencing (citation unavailable, and speculative).
+
+Although the `awk` strategy works fine, copy/pasting this code chunk or
+rewriting it for different user needs is complicated for novice users, and
+without deep understanding of `awk` is relatively inflexible. `bamf` is a
+commandline tool written in Rust which can filter bam files by fragment size,
+and produce reports about their fragment size distributions using
+straightforward, understandable syntax. As a bonus, it outperforms `awk` in
+speed by ~2x.
+
+## Install
+
+### Prebuilt binary
+Download a compatible binary for your operating system from the [Releases Page](https://github.com/snystrom/bamf/releases). Can't find one that works? File an [issue](https://github.com/snystrom/bamf/issues), or compile from source (instructions below).
+
+Place binary in convenient location (ie `~/bin`), add that location to your `PATH` if it isn't already.
+
+``` sh
+# Adds ~/bin to PATH
+echo "export PATH=\$PATH:~/bin" >> ~/.bashrc
+```
+
+Test install:
+``` sh
+bamf --version
+```
+
+### Compile from source
 
 [Install Rust](https://www.rust-lang.org/tools/install). It's super easy!
 
@@ -40,7 +76,7 @@ Flags passed to `stats` cause it to print only the value.
  - `-c (--reads)` Print total read count
 
 `histogram` prints count of each fragment size in csv format
- - `-b (--below)` count all fragments equal to or below this size
+ - `-b (--below)` count all fragments equal to or below this size (default: 1000)
 
 ## Examples:
 
@@ -74,3 +110,10 @@ Flags passed to `stats` cause it to print only the value.
  bamf histogram input.bam > input_histogram.csv
  ```
 
+### Disclaimer
+
+`bamf` is very much in alpha mode. This started as a weekend project to learn
+Rust, so there's some spaghetti code & lack of unit tests, which I plan to fix,
+but consider yourself warned. I like the API as it is, so will try to keep
+breaking changes to a minimum, but no promises. Use in production at your own
+risk, no warranty, all that.

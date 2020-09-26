@@ -1,6 +1,6 @@
 [package]
 name = "bamf"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Spencer L. Nystrom <snystrom@users.noreply.github.com>"]
 license = "MIT"
 edition = "2018"

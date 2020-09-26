@@ -12,7 +12,6 @@ jobs:
     strategy:
       matrix:
         name: [
-            windows,
             macos,
             linux
         ]
@@ -22,10 +21,6 @@ jobs:
             os: ubuntu-latest
             artifact_name: bamf
             asset_name: bamf_linux_amd64
-          - name: windows
-            os: windows-latest
-            artifact_name: bamf.exe
-            asset_name: bamf_windows_amd64
           - name: macos
             os: macos-latest
             artifact_name: bamf

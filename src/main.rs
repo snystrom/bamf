@@ -61,15 +61,15 @@ struct SplitOpts {
     /// a bam file
     #[structopt(parse(from_os_str))]
     infile: std::path::PathBuf,
-    /// a range of fragment sizes to split on: -s <min> <max>
-    /// passing -s multiple times allows splitting into multiple ranges
-    /// order of -s flag determines order of assignment to a range
+    /// a range of fragment sizes to split on: -s <min> <max>.
+    /// Passing -s multiple times allows splitting into multiple ranges.
+    /// Order of -s ranges determines order of assignment to a range (earlier ranges assigned first).
     #[structopt(short = "s", long = "split", multiple = true, number_of_values = 2)]
     split: Vec<i64>,
-    /// File prefix
+    /// Output file prefix
     #[structopt(short = "o", long = "prefix", required = true)]
     prefix: String,
-    /// Allow multimembership
+    /// Allow multimembership.
     /// Whether to allow fragments to be assigned to more than one output file
     /// otherwise reads will be assigned to the first overlapping range based on
     /// the order indicated by -s
@@ -123,17 +123,13 @@ impl FragmentRange {
     fn new() -> FragmentRange {
         FragmentRange{min: 0, max: 1000}
     }
-}
 
-impl FragmentRange {
     fn suffix(&self) -> String {
         format!("_{}to{}", self.min, self.max)
     }
 }
 
 fn filter(args: &FilterOpts, record: &bam::record::Record, out: &mut bam::Writer) {
-    //let record = r.unwrap();
-    //
     // negative insert sizes come from reverse-strand alignment
     // so, take absolute value of size for filtering
     let insert_size = record.insert_size().abs();
@@ -145,16 +141,6 @@ fn filter(args: &FilterOpts, record: &bam::record::Record, out: &mut bam::Writer
     // Current implementation is correct, but:
     // LEARN:
     // Is there better idiomatic Rust approach?
-
-    // TODO: TESTING:
-    // Will short circuiting work? like so:
-    // insert_size >= args.above || args.below.is_some() && insert_size <= args.below.unwrap()
-
-    // Doesn't work:
-    // short circuits on first arg since false (duh).
-    //if insert_size >= args.above || args.below.is_some() && insert_size <= args.below.unwrap() {
-    //    out.write(&record).unwrap();
-    //}
 
     if args.below.is_some() {
         if insert_size <= args.below.unwrap() && insert_size >= args.above {
