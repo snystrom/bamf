@@ -168,6 +168,7 @@ fn filter(args: &FilterOpts, record: &bam::record::Record, out: &mut bam::Writer
 
 }
 
+
 fn summary(bam: &mut bam::Reader) -> BamSummary {
     let mut init = true; // tracks whether state is first read or not
     let mut min_val: i64 = 0;
@@ -287,6 +288,41 @@ fn create_stdout_bam_connection(infile: &bam::Reader) -> bam::Writer {
     // maybe .expect()?
     // maybe `?`
     bam::Writer::from_stdout(&header, bam::Format::BAM).unwrap()
+}
+
+fn create_file_bam_connection(path: &std::path::PathBuf, infile: &bam::Reader, out_suffix: Option<&str>) -> bam::Writer {
+
+    let output_path = output_from_input_path(path, out_suffix);
+    let err_msg = format!("Cannot open path to output file: {:?}", output_path);
+    // Build writer
+    let header = bam::Header::from_template(infile.header());
+    //TODO: modify this to match ext to return a generic writer?
+    bam::Writer::from_path(output_path, &header, bam::Format::BAM)
+        .expect(&err_msg)
+
+}
+
+fn output_path_from_input_path(input_path: &std::path::PathBuf, suffix: Option<&str>) -> std::path::PathBuf {
+    let mut output_path = std::path::PathBuf::new();
+
+    if let Some(x) = input_path.parent() {
+        output_path.push(x);
+    }
+
+    if let Some(x) = input_path.file_stem() {
+        output_path.push(x);
+    }
+
+    if let Some(x) = suffix {
+        output_path.push(x);
+    }
+
+    if let Some(x) = input_path.extension() {
+        output_path.push(x);
+    }
+
+    output_path
+
 }
 
 fn main() {
