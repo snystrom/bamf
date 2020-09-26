@@ -127,7 +127,7 @@ impl FragmentRange {
 
 impl FragmentRange {
     fn suffix(&self) -> String {
-        format!("{}to{}", self.min, self.max)
+        format!("_{}to{}", self.min, self.max)
     }
 }
 
@@ -290,9 +290,9 @@ fn create_stdout_bam_connection(infile: &bam::Reader) -> bam::Writer {
     bam::Writer::from_stdout(&header, bam::Format::BAM).unwrap()
 }
 
-fn create_file_bam_connection(path: &std::path::PathBuf, header: &bam::Header, out_suffix: Option<String>) -> bam::Writer {
+fn create_file_bam_connection(path: &std::path::PathBuf, header: &bam::Header, out_prefix: Option<String>, out_suffix: Option<String>) -> bam::Writer {
 
-    let output_path = output_path_from_input_path(path, out_suffix);
+    let output_path = output_path_from_prefix(path, out_prefix, out_suffix);
     //let err_msg = format!("Cannot open path to output file: {:?}", output_path);
     // Build writer
     //TODO: modify this to match ext to return a generic writer?
@@ -300,26 +300,28 @@ fn create_file_bam_connection(path: &std::path::PathBuf, header: &bam::Header, o
 
 }
 
-fn output_path_from_input_path(input_path: &std::path::PathBuf, suffix: Option<String>) -> std::path::PathBuf {
-    let mut output_path = std::path::PathBuf::new();
+fn output_path_from_prefix(input_path: &std::path::PathBuf, prefix: Option<String>, suffix: Option<String>) -> std::path::PathBuf {
+    let mut output_path = String::new();
 
-    if let Some(x) = input_path.parent() {
-        output_path.push(x);
-    }
-
-    if let Some(x) = input_path.file_stem() {
-        output_path.push(x);
-    }
+    // If specified, use prefix instead of input file location
+    if let Some(x) = prefix {
+        output_path.push_str(&x);
+    } 
 
     if let Some(x) = suffix {
-        output_path.push(x);
+        output_path.push_str(&x);
     }
 
+    // TODO: Figure out how to use this to parse filetype?
+    // If not, then you can drop "input_path" from this and child functions
     if let Some(x) = input_path.extension() {
-        output_path.push(x);
+        let mut dot = String::from(".");
+        dot.push_str(x.to_str().unwrap());
+
+        output_path.push_str(&dot);
     }
 
-    output_path
+    std::path::Path::new(&output_path).to_path_buf()
 
 }
 
@@ -387,11 +389,17 @@ fn main() {
 
                 let mut outputs = Vec::new();
 
+                let file_prefix = args.prefix;
+
                 for i in 0..split_ranges.len() {
                     let range = &split_ranges[i];
                     let suffix = Some(range.suffix());
 
-                    outputs.push(create_file_bam_connection(&args.infile, &header, suffix));
+                    if let Some(ref prefix) = file_prefix {
+                        outputs.push(create_file_bam_connection(&args.infile, &header, Some(prefix.to_string()), suffix));
+                    } else {
+                        outputs.push(create_file_bam_connection(&args.infile, &header, None, suffix));
+                    }
                     //let file = create_file_bam_connection(&args.infile, &header, suffix);
                     //outputs.push(file);
                   
@@ -410,7 +418,7 @@ fn main() {
 
                     for ro in split_ranges.iter().zip(&mut outputs) {
                         let (range, out) = ro;
-                        if insert >= range.min || insert <= range.max {
+                        if insert >= range.min && insert <= range.max {
                             out.write(&record)
                                .expect("Cannot write to output file");
 
