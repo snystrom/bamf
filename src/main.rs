@@ -67,8 +67,8 @@ struct SplitOpts {
     #[structopt(short = "s", long = "split", multiple = true, number_of_values = 2)]
     split: Vec<i64>,
     /// File prefix
-    #[structopt(short = "p", long = "prefix")]
-    prefix: Option<String>,
+    #[structopt(short = "o", long = "prefix", required = true)]
+    prefix: String,
     /// Allow multimembership
     /// Whether to allow fragments to be assigned to more than one output file
     /// otherwise reads will be assigned to the first overlapping range based on
@@ -370,14 +370,14 @@ fn main() {
             },
             Bamf::Split(args) => {
                 //TODO: remove this
-                println!("{:?}", args);
+                //println!("{:?}", args);
 
                 // Collect vector of ranges
                 let split_ranges = prepare_split_ranges(&args.split);
 
                 //TODO: remove this
-                println!("{:?}", split_ranges);
-                println!("{:?}", split_ranges[1].suffix());
+                //println!("{:?}", split_ranges);
+                //println!("{:?}", split_ranges[1].suffix());
            
 
                 // TODO: add bam_out entry to FragmentRange?
@@ -389,22 +389,18 @@ fn main() {
 
                 let mut outputs = Vec::new();
 
-                let file_prefix = args.prefix;
+                let file_prefix = &args.prefix;
 
                 for i in 0..split_ranges.len() {
                     let range = &split_ranges[i];
                     let suffix = Some(range.suffix());
 
-                    if let Some(ref prefix) = file_prefix {
-                        outputs.push(create_file_bam_connection(&args.infile, &header, Some(prefix.to_string()), suffix));
-                    } else {
-                        outputs.push(create_file_bam_connection(&args.infile, &header, None, suffix));
-                    }
-                    //let file = create_file_bam_connection(&args.infile, &header, suffix);
-                    //outputs.push(file);
-                  
-                    //if let Some(file) = create_file_bam_connection(&args.infile, &header, suffix) {
-                    //    outputs.push(file);
+                    outputs.push(create_file_bam_connection(&args.infile, &header, Some(file_prefix.to_string()), suffix));
+                    //  used when prefix was Option<String>
+                    //if let Some(ref prefix) = file_prefix {
+                    //    outputs.push(create_file_bam_connection(&args.infile, &header, Some(prefix.to_string()), suffix));
+                    //} else {
+                    //    outputs.push(create_file_bam_connection(&args.infile, &header, None, suffix));
                     //}
                 }
 
@@ -432,7 +428,6 @@ fn main() {
                     }
 
                 }
-
 
             }
         }
