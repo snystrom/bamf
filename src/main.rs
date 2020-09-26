@@ -242,12 +242,12 @@ fn hist(bam: &mut bam::Reader, below: u64){
 }
 
 fn prepare_split_ranges(split: &Vec<i64>) -> Vec<FragmentRange> {
-    /// Prepare fragment ranges for each split
-    /// (where `split` is an even-numbered vector such that every 2 entries define the beginning and end of a range)
-    /// sorting or any other reorganization operations on `split` are destructive and will produce incorrect behavior
-    /// by unwrapping the split array into min/max pairs
-    /// and packaging into vector of structs
-    /// returns vector of FragmentRanges
+    // Prepare fragment ranges for each split
+    // (where `split` is an even-numbered vector such that every 2 entries define the beginning and end of a range)
+    // sorting or any other reorganization operations on `split` are destructive and will produce incorrect behavior
+    // by unwrapping the split array into min/max pairs
+    // and packaging into vector of structs
+    // returns vector of FragmentRanges
 
     // One range for every pair of entries in `split`
     let mut ranges = vec![FragmentRange::new(); split.len() / 2];
@@ -290,19 +290,17 @@ fn create_stdout_bam_connection(infile: &bam::Reader) -> bam::Writer {
     bam::Writer::from_stdout(&header, bam::Format::BAM).unwrap()
 }
 
-fn create_file_bam_connection(path: &std::path::PathBuf, infile: &bam::Reader, out_suffix: Option<&str>) -> bam::Writer {
+fn create_file_bam_connection(path: &std::path::PathBuf, header: &bam::Header, out_suffix: Option<String>) -> bam::Writer {
 
-    let output_path = output_from_input_path(path, out_suffix);
-    let err_msg = format!("Cannot open path to output file: {:?}", output_path);
+    let output_path = output_path_from_input_path(path, out_suffix);
+    //let err_msg = format!("Cannot open path to output file: {:?}", output_path);
     // Build writer
-    let header = bam::Header::from_template(infile.header());
     //TODO: modify this to match ext to return a generic writer?
-    bam::Writer::from_path(output_path, &header, bam::Format::BAM)
-        .expect(&err_msg)
+    bam::Writer::from_path(output_path, &header, bam::Format::BAM).unwrap()
 
 }
 
-fn output_path_from_input_path(input_path: &std::path::PathBuf, suffix: Option<&str>) -> std::path::PathBuf {
+fn output_path_from_input_path(input_path: &std::path::PathBuf, suffix: Option<String>) -> std::path::PathBuf {
     let mut output_path = std::path::PathBuf::new();
 
     if let Some(x) = input_path.parent() {
@@ -383,25 +381,49 @@ fn main() {
                 // TODO: add bam_out entry to FragmentRange?
                 // Maybe add FragmentSplit struct which has FragmentRange and bam_out members
                 // Instantiate output file connections w/ optional prefix + <min>to<max>.bam suffix
-                //
-                // TODO: delete & rewite below since it's broken as hell
-                // and formatting is weird, but this is the idea moving forward
-                //for r in bam.read() {
-                //  insert = r.insert_size().abs();
-                //    for range in ranges {
-                //      if insert >= range.min && insert <= range.max {
-                //          out.write(r)
-                //             if !args.multimembership {
-                //                 // intent is to break out of looping over ranges after finding correct range
-                //                 // unless user wants to sort into multiple files
-                //                 break
-                //             }
-                //    }
 
-                //    }
-                //}
-                //
-                // if multimembership = true don't break
+                let mut bam = create_infile_bam_connection(&args.infile);
+                let header = bam::Header::from_template(&bam.header());
+
+                let mut outputs = Vec::new();
+
+                for i in 0..split_ranges.len() {
+                    let range = &split_ranges[i];
+                    let suffix = Some(range.suffix());
+
+                    outputs.push(create_file_bam_connection(&args.infile, &header, suffix));
+                    //let file = create_file_bam_connection(&args.infile, &header, suffix);
+                    //outputs.push(file);
+                  
+                    //if let Some(file) = create_file_bam_connection(&args.infile, &header, suffix) {
+                    //    outputs.push(file);
+                    //}
+                }
+
+                // open bam file, write reads to files corresponding to each range
+
+                for r in bam.records() {
+
+                    let record = r.unwrap();
+
+                    let insert = record.insert_size().abs();
+
+                    for ro in split_ranges.iter().zip(&mut outputs) {
+                        let (range, out) = ro;
+                        if insert >= range.min || insert <= range.max {
+                            out.write(&record)
+                               .expect("Cannot write to output file");
+
+                            if !args.multimembership {
+                                // if reads can't be assigned to more than one file
+                                // move to next read, else check if it fits the next file
+                                break
+                            }
+
+                        }
+                    }
+
+                }
 
 
             }
