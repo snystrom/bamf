@@ -7,6 +7,7 @@ use structopt::{clap::ArgGroup, StructOpt};
 // https://stackoverflow.com/a/61351721
 
 #[derive(StructOpt, Debug)]
+#[structopt(setting = structopt::clap::AppSettings::ArgRequiredElseHelp)]
 struct Cli {
     #[structopt(subcommand)]
     commands: Option<Bamf>
