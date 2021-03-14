@@ -1,3 +1,4 @@
+use std::io::Write;
 use rust_htslib::{bam, bam::Read};
 use structopt::{clap::ArgGroup, StructOpt};
 // CLI tutorial book
@@ -80,6 +81,14 @@ struct SplitOpts {
 }
 
 #[derive(StructOpt, Debug)]
+struct ConvertOpts {
+    /// a bam file
+    #[structopt(parse(from_os_str))]
+    infile: std::path::PathBuf,
+    //TODO: add different file types, start with bedpe3 (chr start_r1 end_r2)
+}
+
+#[derive(StructOpt, Debug)]
 enum Bamf {
     /// Filter bam file to keep only fragments of given size
     #[structopt(name = "filter")]
@@ -96,6 +105,10 @@ enum Bamf {
     /// Filter bam file into multiple bam files according to fragment size intervals
     #[structopt(name = "split")]
     Split (SplitOpts),
+
+    /// Convert bam file into commonly used nonstandard formats
+    #[structopt(name = "convert")]
+    Convert (ConvertOpts),
 
 }
 
@@ -219,6 +232,7 @@ fn hist(bam: &mut bam::Reader, below: u64){
     // write histogram to stdout
     // in csv format:
     // value,count
+    // TODO: fix SIGPIPE error
     println!("size,n");
     let h_iter = h.into_iter();
     for i in h_iter {
@@ -269,6 +283,7 @@ fn create_infile_bam_connection(path: &std::path::PathBuf) -> bam::Reader {
     bam::Reader::from_path(path).unwrap()
 }
 
+
 fn create_stdout_bam_connection(infile: &bam::Reader) -> bam::Writer {
     let header = bam::Header::from_template(infile.header());
     // TODO: I think instead of unwrap() I should use match() to handle err?
@@ -316,110 +331,164 @@ fn main() {
 
     let cli = Cli::from_args();
 
-    if let Some(subcommand) = cli.commands{
-        match subcommand {
-            Bamf::Filter(args) => {
+    let subcommand = match cli.commands {
+        Some(it) => it,
+        _ => return,
+    };
+    match subcommand {
+        Bamf::Filter(args) => {
 
-                let mut bam = create_infile_bam_connection(&args.infile);
-                let mut out = create_stdout_bam_connection(&bam);
+            let mut bam = create_infile_bam_connection(&args.infile);
+            let mut out = create_stdout_bam_connection(&bam);
 
-                for r in bam.records() {
-                    let record = r.unwrap();
-                    filter(&args, &record, &mut out);
-                }
+            for r in bam.records() {
+                let record = r.unwrap();
+                filter(&args, &record, &mut out);
+            }
 
-            },
-            Bamf::Summary(args) => {
-                let mut bam = create_infile_bam_connection(&args.infile);
+        },
+        Bamf::Summary(args) => {
+            let mut bam = create_infile_bam_connection(&args.infile);
 
-                let bam_summary = summary(&mut bam);
+            let bam_summary = summary(&mut bam);
 
-                if !args.min && !args.max && !args.mean && !args.reads {
-                   println!("min: {}", bam_summary.min);
-                   println!("max: {}", bam_summary.max);
-                   println!("mean: {}", bam_summary.mean);
-                   println!("reads: {}", bam_summary.reads);
-                } else if args.min {
-                    println!("{}", bam_summary.min);
-                } else if args.max {
-                    println!("{}", bam_summary.max);
-                } else if args.mean {
-                    println!("{}", bam_summary.mean);
-                } else if args.reads {
-                    println!("{}", bam_summary.reads);
-                }
+            //TODO: fix SIGPIPE
+            if !args.min && !args.max && !args.mean && !args.reads {
+               println!("min: {}", bam_summary.min);
+               println!("max: {}", bam_summary.max);
+               println!("mean: {}", bam_summary.mean);
+               println!("reads: {}", bam_summary.reads);
+            } else if args.min {
+                println!("{}", bam_summary.min);
+            } else if args.max {
+                println!("{}", bam_summary.max);
+            } else if args.mean {
+                println!("{}", bam_summary.mean);
+            } else if args.reads {
+                println!("{}", bam_summary.reads);
+            }
 
-                return
-            },
-            Bamf::Hist(args) => {
-                let mut bam = create_infile_bam_connection(&args.infile);
-                hist(&mut bam, args.below)
-            },
-            Bamf::Split(args) => {
-                //TODO: remove this
-                //println!("{:?}", args);
+            return
+        },
+        Bamf::Hist(args) => {
+            let mut bam = create_infile_bam_connection(&args.infile);
+            hist(&mut bam, args.below)
+        },
+        Bamf::Split(args) => {
+            //TODO: remove this
+            //println!("{:?}", args);
 
-                // Collect vector of ranges
-                let split_ranges = prepare_split_ranges(&args.split);
+            // Collect vector of ranges
+            let split_ranges = prepare_split_ranges(&args.split);
 
-                //TODO: remove this
-                //println!("{:?}", split_ranges);
-                //println!("{:?}", split_ranges[1].suffix());
-           
+            //TODO: remove this
+            //println!("{:?}", split_ranges);
+            //println!("{:?}", split_ranges[1].suffix());
 
-                // TODO: add bam_out entry to FragmentRange?
-                // Maybe add FragmentSplit struct which has FragmentRange and bam_out members
-                // Instantiate output file connections w/ optional prefix + <min>to<max>.bam suffix
 
-                let mut bam = create_infile_bam_connection(&args.infile);
-                let header = bam::Header::from_template(&bam.header());
+            // TODO: add bam_out entry to FragmentRange?
+            // Maybe add FragmentSplit struct which has FragmentRange and bam_out members
+            // Instantiate output file connections w/ optional prefix + <min>to<max>.bam suffix
 
-                let mut outputs = Vec::new();
+            let mut bam = create_infile_bam_connection(&args.infile);
+            let header = bam::Header::from_template(&bam.header());
 
-                let file_prefix = &args.prefix;
+            let mut outputs = Vec::new();
 
-                for i in 0..split_ranges.len() {
-                    let range = &split_ranges[i];
-                    let suffix = Some(range.suffix());
+            let file_prefix = &args.prefix;
 
-                    outputs.push(create_file_bam_connection(&args.infile, &header, Some(file_prefix.to_string()), suffix));
-                    //  used when prefix was Option<String>
-                    //if let Some(ref prefix) = file_prefix {
-                    //    outputs.push(create_file_bam_connection(&args.infile, &header, Some(prefix.to_string()), suffix));
-                    //} else {
-                    //    outputs.push(create_file_bam_connection(&args.infile, &header, None, suffix));
-                    //}
-                }
+            for i in 0..split_ranges.len() {
+                let range = &split_ranges[i];
+                let suffix = Some(range.suffix());
 
-                // open bam file, write reads to files corresponding to each range
+                outputs.push(create_file_bam_connection(&args.infile, &header, Some(file_prefix.to_string()), suffix));
+                //  used when prefix was Option<String>
+                //if let Some(ref prefix) = file_prefix {
+                //    outputs.push(create_file_bam_connection(&args.infile, &header, Some(prefix.to_string()), suffix));
+                //} else {
+                //    outputs.push(create_file_bam_connection(&args.infile, &header, None, suffix));
+                //}
+            }
 
-                for r in bam.records() {
+            // open bam file, write reads to files corresponding to each range
 
-                    let record = r.unwrap();
+            for r in bam.records() {
 
-                    let insert = record.insert_size().abs();
+                let record = r.unwrap();
 
-                    for ro in split_ranges.iter().zip(&mut outputs) {
-                        let (range, out) = ro;
-                        if insert >= range.min && insert <= range.max {
-                            out.write(&record)
-                               .expect("Cannot write to output file");
+                let insert = record.insert_size().abs();
 
-                            if !args.multimembership {
-                                // if reads can't be assigned to more than one file
-                                // move to next read, else check if it fits the next file
-                                break
-                            }
+                for ro in split_ranges.iter().zip(&mut outputs) {
+                    let (range, out) = ro;
+                    if insert >= range.min && insert <= range.max {
+                        out.write(&record)
+                           .expect("Cannot write to output file");
 
+                        if !args.multimembership {
+                            // if reads can't be assigned to more than one file
+                            // move to next read, else check if it fits the next file
+                            break
                         }
-                    }
 
+                    }
                 }
 
             }
-        }
+
+        },
+        Bamf::Convert(args) => {
+            let mut bam = create_infile_bam_connection(&args.infile);
+            let header = bam::Header::from_template(&bam.header());
+            let header_view = bam::HeaderView::from_header(&header);
+            //let t_names = header_view.target_names();
+
+            //TODO: remove these prints
+            //println!("header: {:?}", header);
+            //println!("header_view: {:?}", header_view);
+            //println!("tnames: {:#?}", t_names);
+            //println!("tid0 2 name: {:?}", header_view.tid2name(0));
+            //println!("tid1 2 name: {:?}", header_view.tid2name(1));
+            //println!("tid1 2 name: {:?}", String::from_utf8(header_view.tid2name(1).to_vec()));
+
+            fn get_chr_name(record: &bam::Record, header: &bam::HeaderView) -> String{
+                let tid = record.tid() as u32;
+                let tid_name = header.tid2name(tid);
+                let chr_name = String::from_utf8(tid_name.to_vec());
+
+                match chr_name {
+                    Err(e) => panic!("Cannot extract target id: {:?}", e),
+                    Ok(chr) => chr
+                }
+
+            }
+
+            // TODO: iterate by 2's because paired
+            //          while then forward @ end?
+            // TODO: check that file is paired named sorted
+            for r in bam.records() {
+                let record = r.unwrap();
+
+                //let mut writer = create_stdout_sam_connection(&mut bam);
+
+                //let r1_tid = record.tid() as u32;
+                // convert id to chromosome name
+                //let r1_tid_name = header_view.tid2name(r1_tid);
+                let chrname = get_chr_name(&record, &header_view);
+                let r1_pos = record.pos();
+                //let r2_pos = record.mpos();
+                let insert = record.insert_size();
+
+                // TODO: need to figure out what is correct position, add insert size or use r2_pos??
+                let mut stdout = std::io::stdout();
+                if let Err(e) = writeln!(stdout, "{}\t{}\t{}", chrname, r1_pos, r1_pos + insert) {
+                    if e.kind() != std::io::ErrorKind::BrokenPipe {
+                        eprintln!("{}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+        },
     }
 
 
 }
-
