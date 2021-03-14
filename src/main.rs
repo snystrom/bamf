@@ -486,15 +486,25 @@ fn main() {
 
                 // All information is contained in R1
                 // So ignore R2 and any unpaired reads
+                // NOTE: the slightly shifted read issue is not fixed or changed by using second read instead...
                 if record.is_proper_pair() && record.is_first_in_template() {
                     let chrname = get_chr_name(&record, &header_view);
                     let r1_pos = record.pos();
-                    //let r2_pos = record.mpos();
+                    let r2_pos = record.mpos();
                     let insert = record.insert_size();
+                    let cigar_len = record.cigar_len();
+
+                    // Orient output so that 5' most read is start, 3' read is end
+                    let start = if r1_pos >= r2_pos {r2_pos} else {r1_pos};
+                    let end = start + insert.abs();
+                    //let start = std::cmp::min(r1_pos, r1_pos + insert);
+                    //let end = std::cmp::max(r1_pos, r1_pos + insert);
 
                     // TODO: need to figure out what is correct position, add insert size or use r2_pos??
+                    // NOTE: Using current implementation, a small number of reads (~10%) have end positions shifted by ~3 bp relative to bedtools bamtobed -bedpe -i - | cut -f1,2,6
+                    // WHY???
                     let mut stdout = std::io::stdout();
-                    if let Err(e) = writeln!(stdout, "{}\t{}\t{}", chrname, r1_pos, r1_pos + insert) {
+                    if let Err(e) = writeln!(stdout, "{}\t{}\t{}", chrname, start, end) {
                         if e.kind() != std::io::ErrorKind::BrokenPipe {
                             eprintln!("{}", e);
                             std::process::exit(1);
