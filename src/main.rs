@@ -16,9 +16,9 @@ struct Cli {
 
 #[derive(StructOpt, Debug)]
 struct FilterOpts {
-    /// a bam file
-    #[structopt(parse(from_os_str))]
-    infile: std::path::PathBuf,
+    /// a bam file (or - for stdin)
+    #[structopt(parse(from_str))]
+    infile: String,
     /// return all fragments greater than or equal to this fragment size
     #[structopt(default_value = "0", short = "a", long = "above")]
     above: i64,
@@ -30,9 +30,9 @@ struct FilterOpts {
 #[derive(StructOpt, Debug)]
 #[structopt(group = ArgGroup::with_name("stat"))]
 struct SummaryOpts {
-    /// a bam file
-    #[structopt(parse(from_os_str))]
-    infile: std::path::PathBuf,
+    /// a bam file (or - for stdin)
+    #[structopt(parse(from_str))]
+    infile: String,
     /// Print minimum fragment size
     #[structopt(short = "n", long, group = "stat", conflicts_with = "summary")]
     min: bool,
@@ -50,9 +50,9 @@ struct SummaryOpts {
 
 #[derive(StructOpt, Debug)]
 struct HistogramOpts {
-    /// a bam file
-    #[structopt(parse(from_os_str))]
-    infile: std::path::PathBuf,
+    /// a bam file (or - for stdin)
+    #[structopt(parse(from_str))]
+    infile: String,
     /// compute distribution up to this size
     #[structopt(default_value = "1000", short = "b", long = "below")]
     below: u64
@@ -60,7 +60,7 @@ struct HistogramOpts {
 
 #[derive(StructOpt, Debug)]
 struct SplitOpts {
-    /// a bam file
+    /// a bam file (does not accept from stdin)
     #[structopt(parse(from_os_str))]
     infile: std::path::PathBuf,
     /// a range of fragment sizes to split on: -s <min> <max>.
@@ -82,9 +82,16 @@ struct SplitOpts {
 
 #[derive(StructOpt, Debug)]
 struct ConvertOpts {
-    /// a bam file
-    #[structopt(parse(from_os_str))]
-    infile: std::path::PathBuf,
+    /// a bam file (or - for stdin)
+    /// to convert to bedpe3 format, where each entry corresponds to a fragment
+    /// i.e. chr, start_read1, end_read2
+    /// example:
+    /// bamf convert example.bam > example.bed
+    /// cat example.bam | bamf convert - > example.bed
+    //#[structopt(parse(from_os_str))]
+    #[structopt(parse(from_str))]
+    //infile: std::path::PathBuf,
+    infile: String
     //TODO: add different file types, start with bedpe3 (chr start_r1 end_r2)
 }
 
@@ -276,11 +283,21 @@ fn prepare_split_ranges(split: &Vec<i64>) -> Vec<FragmentRange> {
     ranges
 }
 
+fn read_bam_or_stdin(path: &str) -> bam::Reader {
+    //TODO: error handling instead of unwrap
+    // NOTE: 2020.03.14 if rust analyzer is throwing errors in this chunk, ignore them for now, they're wrong
+    match path {
+        "-" => bam::Reader::from_stdin().unwrap(),
+        _ => bam::Reader::from_path(path).unwrap()
+    }
+}
+
 fn create_infile_bam_connection(path: &std::path::PathBuf) -> bam::Reader {
     // TODO: I think instead of unwrap() I should use match() to handle err?
     // maybe .expect()?
     // maybe `?`
     bam::Reader::from_path(path).unwrap()
+
 }
 
 
@@ -338,7 +355,7 @@ fn main() {
     match subcommand {
         Bamf::Filter(args) => {
 
-            let mut bam = create_infile_bam_connection(&args.infile);
+            let mut bam = read_bam_or_stdin(&args.infile);
             let mut out = create_stdout_bam_connection(&bam);
 
             for r in bam.records() {
@@ -348,7 +365,7 @@ fn main() {
 
         },
         Bamf::Summary(args) => {
-            let mut bam = create_infile_bam_connection(&args.infile);
+            let mut bam = read_bam_or_stdin(&args.infile);
 
             let bam_summary = summary(&mut bam);
 
@@ -371,7 +388,7 @@ fn main() {
             return
         },
         Bamf::Hist(args) => {
-            let mut bam = create_infile_bam_connection(&args.infile);
+            let mut bam = read_bam_or_stdin(&args.infile);
             hist(&mut bam, args.below)
         },
         Bamf::Split(args) => {
@@ -437,7 +454,7 @@ fn main() {
 
         },
         Bamf::Convert(args) => {
-            let mut bam = create_infile_bam_connection(&args.infile);
+            let mut bam = read_bam_or_stdin(&args.infile);
             let header = bam::Header::from_template(&bam.header());
             let header_view = bam::HeaderView::from_header(&header);
             //let t_names = header_view.target_names();

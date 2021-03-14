@@ -78,9 +78,14 @@ Flags passed to `stats` cause it to print only the value.
 `histogram` prints count of each fragment size in csv format
  - `-b (--below)` count all fragments equal to or below this size (default: 1000)
 
+`convert` convert from bam to other commonly used read fragment formats
+ - Returns reads in bed format such that each entry represents the full fragment (i.e. `chromosome  read1_start read2_end`)
+ - Currently only supports bed3 fragments format, but additional formats will be added in future releases
+   - When this happens, bed3 fragments will remain the default with no additional flags (so using `bamf convert` is future proof)
+
 ## Examples:
 
- ```
+```
  # return all fragments >= 100 bp
  bamf filter -a 100 input.bam > output.bam
  
@@ -108,7 +113,16 @@ Flags passed to `stats` cause it to print only the value.
 
 # Counts each fragment size in input.bam
  bamf histogram input.bam > input_histogram.csv
- ```
+
+# Converts to fragments bed file
+ bamf convert input.bam > input_fragments.bed
+ 
+# Operations can be piped together by using "-" as the input file like so:
+ bamf filter -a 150 -b 700 input.bam | bamf histogram - > input_150to700_histogram.tsv
+ 
+# This enables filtering with samtools as intermediate steps:
+ bamf filter -a 20 -b 120 input.bam | samtools view -q 30 > 20to120_q30.bam
+```
 
 ### Disclaimer
 
