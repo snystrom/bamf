@@ -492,7 +492,6 @@ fn main() {
                     let r1_pos = record.pos();
                     let r2_pos = record.mpos();
                     let insert = record.insert_size();
-                    let cigar_len = record.cigar_len();
 
                     // Orient output so that 5' most read is start, 3' read is end
                     let start = if r1_pos >= r2_pos {r2_pos} else {r1_pos};
