@@ -479,29 +479,28 @@ fn main() {
 
             }
 
-            // TODO: iterate by 2's because paired
-            //          while then forward @ end?
-            // TODO: check that file is paired named sorted
             for r in bam.records() {
                 let record = r.unwrap();
 
                 //let mut writer = create_stdout_sam_connection(&mut bam);
 
-                //let r1_tid = record.tid() as u32;
-                // convert id to chromosome name
-                //let r1_tid_name = header_view.tid2name(r1_tid);
-                let chrname = get_chr_name(&record, &header_view);
-                let r1_pos = record.pos();
-                //let r2_pos = record.mpos();
-                let insert = record.insert_size();
+                // All information is contained in R1
+                // So ignore R2 and any unpaired reads
+                if record.is_proper_pair() && record.is_first_in_template() {
+                    let chrname = get_chr_name(&record, &header_view);
+                    let r1_pos = record.pos();
+                    //let r2_pos = record.mpos();
+                    let insert = record.insert_size();
 
-                // TODO: need to figure out what is correct position, add insert size or use r2_pos??
-                let mut stdout = std::io::stdout();
-                if let Err(e) = writeln!(stdout, "{}\t{}\t{}", chrname, r1_pos, r1_pos + insert) {
-                    if e.kind() != std::io::ErrorKind::BrokenPipe {
-                        eprintln!("{}", e);
-                        std::process::exit(1);
+                    // TODO: need to figure out what is correct position, add insert size or use r2_pos??
+                    let mut stdout = std::io::stdout();
+                    if let Err(e) = writeln!(stdout, "{}\t{}\t{}", chrname, r1_pos, r1_pos + insert) {
+                        if e.kind() != std::io::ErrorKind::BrokenPipe {
+                            eprintln!("{}", e);
+                            std::process::exit(1);
+                        }
                     }
+
                 }
             }
         },
