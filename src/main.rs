@@ -494,14 +494,21 @@ fn main() {
                     let insert = record.insert_size();
 
                     // Orient output so that 5' most read is start, 3' read is end
-                    let start = if r1_pos >= r2_pos {r2_pos} else {r1_pos};
-                    let end = start + insert.abs();
+                    let start: i64 = if r1_pos >= r2_pos {r2_pos} else {r1_pos};
+                    let end: i64 = start + insert.abs();
                     //let start = std::cmp::min(r1_pos, r1_pos + insert);
                     //let end = std::cmp::max(r1_pos, r1_pos + insert);
 
                     // TODO: need to figure out what is correct position, add insert size or use r2_pos??
+                    // Yes, r1_pos + TLEN should give r2_pos (end - start + ), I think the following issue is a special case:
                     // NOTE: Using current implementation, a small number of reads (~10%) have end positions shifted by ~3 bp relative to bedtools bamtobed -bedpe -i - | cut -f1,2,6
                     // WHY???
+                    // I think this maybe is related to some CIGAR thing? But in my tests I can't work out why
+                    // I am fairly certain I am correct here and that bedtools is maybe off by 1? But my guess is I'm not accounting for something here.
+                    // bedtools calls bam_cigar_oplen when using bam.GetEndPos, but I can't tell what it's doing. My guess is it's parsing the CIGAR and shifting the coord by any mismatches/etc.
+                    // Not sure though
+                    // For future reference:
+                    // GetEndPosition -> bam_endpos -> bam_cigar_oplen in bedtools
                     let mut stdout = std::io::stdout();
                     if let Err(e) = writeln!(stdout, "{}\t{}\t{}", chrname, start, end) {
                         if e.kind() != std::io::ErrorKind::BrokenPipe {
