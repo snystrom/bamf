@@ -31,7 +31,7 @@ dependencies = [
 
 [[package]]
 name = "bamf"
-version = "0.1.92"
+version = "0.1.93"
 dependencies = [
  "histogram",
  "rust-htslib",

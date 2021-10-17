@@ -239,29 +239,18 @@ fn hist(bam: &mut bam::Reader, below: u64){
     // write histogram to stdout
     // in csv format:
     // value,count
-    print_hist_header();
+    safe_print("size,n");
 
     let h_iter = h.into_iter();
     for i in h_iter {
-        print_hist_line(&i.value(), &i.count());
-
+        safe_print(&format!("{},{}", i.value(), i.count()));
     }
 
 }
 
-fn print_hist_header(){
+fn safe_print(text: &str){
     let mut stdout = std::io::stdout();
-    if let Err(e) = writeln!(stdout, "size,n") {
-        if e.kind() != std::io::ErrorKind::BrokenPipe {
-            eprintln!("{}", e);
-            std::process::exit(1);
-        }
-    }
-}
-
-fn print_hist_line(value: &u64, count: &u64){
-    let mut stdout = std::io::stdout();
-    if let Err(e) = writeln!(stdout, "{},{}", value, count) {
+    if let Err(e) = writeln!(stdout, "{}", text) {
         if e.kind() != std::io::ErrorKind::BrokenPipe {
             eprintln!("{}", e);
             std::process::exit(1);
@@ -389,20 +378,19 @@ fn main() {
 
             let bam_summary = summary(&mut bam);
 
-            //TODO: fix SIGPIPE
             if !args.min && !args.max && !args.mean && !args.reads {
-               println!("min: {}", bam_summary.min);
-               println!("max: {}", bam_summary.max);
-               println!("mean: {}", bam_summary.mean);
-               println!("reads: {}", bam_summary.reads);
+                safe_print(&format!("min: {}", bam_summary.min));
+                safe_print(&format!("max: {}", bam_summary.max));
+                safe_print(&format!("mean: {}", bam_summary.mean));
+                safe_print(&format!("reads: {}", bam_summary.reads));
             } else if args.min {
-                println!("{}", bam_summary.min);
+                safe_print(&format!("{}", bam_summary.min));
             } else if args.max {
-                println!("{}", bam_summary.max);
+                safe_print(&format!("{}", bam_summary.max));
             } else if args.mean {
-                println!("{}", bam_summary.mean);
+                safe_print(&format!("{}", bam_summary.mean));
             } else if args.reads {
-                println!("{}", bam_summary.reads);
+                safe_print(&format!("{}", bam_summary.reads));
             }
 
             return
@@ -529,13 +517,7 @@ fn main() {
                     // Not sure though
                     // For future reference:
                     // GetEndPosition -> bam_endpos -> bam_cigar_oplen in bedtools
-                    let mut stdout = std::io::stdout();
-                    if let Err(e) = writeln!(stdout, "{}\t{}\t{}", chrname, start, end) {
-                        if e.kind() != std::io::ErrorKind::BrokenPipe {
-                            eprintln!("{}", e);
-                            std::process::exit(1);
-                        }
-                    }
+                    safe_print(&format!("{}\t{}\t{}", chrname, start, end))
 
                 }
             }
