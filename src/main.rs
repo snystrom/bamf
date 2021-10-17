@@ -239,14 +239,34 @@ fn hist(bam: &mut bam::Reader, below: u64){
     // write histogram to stdout
     // in csv format:
     // value,count
-    // TODO: fix SIGPIPE error
-    println!("size,n");
+    print_hist_header();
+
     let h_iter = h.into_iter();
     for i in h_iter {
-        println!("{},{}", i.value(), i.count());
+        print_hist_line(&i.value(), &i.count());
 
     }
 
+}
+
+fn print_hist_header(){
+    let mut stdout = std::io::stdout();
+    if let Err(e) = writeln!(stdout, "size,n") {
+        if e.kind() != std::io::ErrorKind::BrokenPipe {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn print_hist_line(value: &u64, count: &u64){
+    let mut stdout = std::io::stdout();
+    if let Err(e) = writeln!(stdout, "{},{}", value, count) {
+        if e.kind() != std::io::ErrorKind::BrokenPipe {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    }
 }
 
 fn prepare_split_ranges(split: &Vec<i64>) -> Vec<FragmentRange> {
